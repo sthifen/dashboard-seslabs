@@ -29,7 +29,7 @@
   --status-warning:  #fab219;
   --status-critical: #d03b3b;
 
-  --glass-blur: 22px;
+  --glass-blur: 14px;
   --glass-radius: 26px;
 }
 
@@ -49,29 +49,31 @@ html, body {
 .bg-photo {
   position: fixed;
   inset: 0;
-  z-index: -2;
+  z-index: 0;
   background-image: url("bg.jpg");
   background-size: cover;
   background-position: center 32%;
   background-repeat: no-repeat;
-  filter: saturate(1.2) brightness(0.98) contrast(1.05);
+  filter: saturate(1.2) brightness(1.05) contrast(1.08);
   transform: scale(1.03); /* evita bordes al hacer blur del contenedor en algunos navegadores */
 }
 
 .bg-scrim {
   position: fixed;
   inset: 0;
-  z-index: -1;
-  /* mucho mas liviano que antes: la idea es que el color de la foto
-     se alcance a ver A TRAVES de las tarjetas (eso es lo que hace que
-     el "liquid glass" se sienta real en vez de una tarjeta gris opaca) */
+  z-index: 0;
+  /* un poco mas de oscurecido que en el intento anterior: ahora que la
+     foto SI se ve (el bug real era el z-index, no el brillo), hace
+     falta este tanto para que el texto siga siendo legible */
   background:
-    radial-gradient(120% 90% at 50% -10%, rgba(20, 24, 30, 0.02), rgba(6, 8, 12, 0.18) 55%, rgba(4, 5, 8, 0.38) 100%);
+    radial-gradient(120% 90% at 50% -10%, rgba(10, 12, 16, 0.10), rgba(6, 8, 12, 0.28) 55%, rgba(4, 5, 8, 0.48) 100%);
 }
 
 /* -------------------- layout -------------------- */
 
 .page {
+  position: relative;
+  z-index: 1;
   max-width: 1320px;
   margin: 0 auto;
   padding: 28px 20px 60px;
@@ -85,9 +87,9 @@ html, body {
 .glass {
   /* mucho mas transparente que antes: el punto del "liquid glass" es
      que se note lo que hay detras, difuminado y con color */
-  background: rgba(255, 255, 255, 0.045);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(190%) brightness(1.08);
-  backdrop-filter: blur(var(--glass-blur)) saturate(190%) brightness(1.08);
+  background: rgba(255, 255, 255, 0.10);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(170%);
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--glass-radius);
   box-shadow:
@@ -181,7 +183,9 @@ html, body {
   gap: 8px;
   padding: 7px 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
+  /* fondo oscuro propio (no solo blanco translucido) -- necesita buen
+     contraste sin importar que tan clara salga la foto de fondo ahi */
+  background: rgba(6, 8, 10, 0.45);
   border: 1px solid var(--border-hairline);
   font-size: 13px;
   color: var(--text-secondary);
@@ -330,7 +334,7 @@ html, body {
   /* fondo un poco mas solido solo detras de la grafica, para que los
      ejes/etiquetas se sigan leyendo bien aunque el resto de la tarjeta
      sea bien transparente */
-  background: rgba(10, 10, 10, 0.25);
+  background: rgba(8, 8, 8, 0.45);
   border-radius: 14px;
   padding: 8px 10px 2px;
 }
@@ -477,7 +481,7 @@ html, body {
 .compare-chart-wrap {
   position: relative;
   height: 320px;
-  background: rgba(10, 10, 10, 0.25);
+  background: rgba(8, 8, 8, 0.45);
   border-radius: 14px;
   padding: 12px 14px 4px;
 }
