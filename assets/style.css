@@ -498,6 +498,13 @@ html, body {
   font-size: 13px;
   margin: 0;
 }
+/* El atributo [hidden] del navegador pierde contra la regla de arriba
+   (misma especificidad, pero esta es la que gana en el cascade) -- sin
+   esto el aviso "Selecciona sensores..." se queda pegado encima de la
+   gráfica aunque el JS ya lo haya marcado como oculto. */
+.compare-empty[hidden] {
+  display: none;
+}
 
 /* -------------------- tarjeta Colab / QR -------------------- */
 

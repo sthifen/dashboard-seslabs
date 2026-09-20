@@ -518,9 +518,6 @@
       return;
     }
 
-    canvas.hidden = false;
-    empty.hidden = true;
-
     const datasets = selected.map((key) => {
       const meta = SENSOR_META.find((m) => m.key === key);
       const sensor = state.raw.sensors[key];
@@ -549,6 +546,17 @@
         parsing: false,
       };
     });
+
+    const totalPoints = datasets.reduce((sum, d) => sum + d.data.length, 0);
+    if (totalPoints === 0) {
+      canvas.hidden = true;
+      empty.hidden = false;
+      empty.textContent = 'Ninguno de los sensores elegidos tiene datos para el día/hora seleccionados arriba. Prueba cambiando "Día" a "Todo el rango".';
+      return;
+    }
+
+    canvas.hidden = false;
+    empty.hidden = true;
 
     const ctx = canvas.getContext("2d");
     state.compareChart = new Chart(ctx, {
