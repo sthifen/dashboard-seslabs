@@ -29,7 +29,7 @@
   --status-warning:  #fab219;
   --status-critical: #d03b3b;
 
-  --glass-blur: 28px;
+  --glass-blur: 22px;
   --glass-radius: 26px;
 }
 
@@ -52,9 +52,9 @@ html, body {
   z-index: -2;
   background-image: url("bg.jpg");
   background-size: cover;
-  background-position: center 30%;
+  background-position: center 32%;
   background-repeat: no-repeat;
-  filter: saturate(1.05) brightness(0.75);
+  filter: saturate(1.2) brightness(0.98) contrast(1.05);
   transform: scale(1.03); /* evita bordes al hacer blur del contenedor en algunos navegadores */
 }
 
@@ -62,8 +62,11 @@ html, body {
   position: fixed;
   inset: 0;
   z-index: -1;
+  /* mucho mas liviano que antes: la idea es que el color de la foto
+     se alcance a ver A TRAVES de las tarjetas (eso es lo que hace que
+     el "liquid glass" se sienta real en vez de una tarjeta gris opaca) */
   background:
-    radial-gradient(120% 90% at 50% -10%, rgba(20, 24, 30, 0.15), rgba(6, 8, 12, 0.55) 55%, rgba(4, 5, 8, 0.85) 100%);
+    radial-gradient(120% 90% at 50% -10%, rgba(20, 24, 30, 0.02), rgba(6, 8, 12, 0.18) 55%, rgba(4, 5, 8, 0.38) 100%);
 }
 
 /* -------------------- layout -------------------- */
@@ -80,25 +83,40 @@ html, body {
 /* -------------------- glass base -------------------- */
 
 .glass {
-  background: rgba(255, 255, 255, 0.08);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  border: 1px solid var(--border-hairline);
+  /* mucho mas transparente que antes: el punto del "liquid glass" es
+     que se note lo que hay detras, difuminado y con color */
+  background: rgba(255, 255, 255, 0.045);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(190%) brightness(1.08);
+  backdrop-filter: blur(var(--glass-blur)) saturate(190%) brightness(1.08);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--glass-radius);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.35) inset,
-    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
-    0 18px 40px rgba(0, 0, 0, 0.35);
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 -1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 22px 50px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(0, 0, 0, 0.15);
   position: relative;
   overflow: hidden;
 }
 
 .glass::before {
-  /* brillo especular sutil arriba, tipo liquid glass */
+  /* brillo especular diagonal, tipo vidrio curvo */
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0) 70%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0) 48%, rgba(255,255,255,0) 78%, rgba(255,255,255,0.06) 100%);
+  pointer-events: none;
+}
+
+.glass::after {
+  /* linea de brillo fina en el borde superior, como el filo de un vidrio real */
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.95), transparent);
   pointer-events: none;
 }
 
@@ -199,19 +217,45 @@ html, body {
   appearance: none;
   font: inherit;
   font-size: 13px;
+  font-weight: 550;
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.09);
-  border: 1px solid var(--border-hairline);
-  border-radius: 12px;
-  padding: 7px 30px 7px 12px;
-  min-width: 130px;
+  /* color-scheme aqui (no solo en :root) es lo que hace que Chrome/Firefox
+     pinten el DESPLEGABLE NATIVO en oscuro tambien -- sin esto, algunos
+     navegadores muestran el popup de opciones en blanco con texto blanco */
+  color-scheme: dark;
+  background: rgba(255, 255, 255, 0.10);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  border-radius: 999px;
+  padding: 8px 32px 8px 14px;
+  min-width: 120px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
   background-image: linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%), linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
   background-position: calc(100% - 16px) center, calc(100% - 11px) center;
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
 }
 
-.control select:focus { outline: 1.5px solid var(--series-blue); }
+.control select:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.control select:focus {
+  outline: none;
+  border-color: var(--series-blue);
+  box-shadow: 0 0 0 3px rgba(57, 135, 229, 0.35);
+}
+
+/* el popup de opciones no respeta backdrop-filter/gradientes -- se le
+   pone un fondo solido oscuro explicito para que el texto blanco se
+   pueda leer siempre, sin importar el tema del sistema operativo */
+.control select option {
+  background-color: #1c1c1b;
+  color: #ffffff;
+}
 
 /* -------------------- gaps -------------------- */
 
@@ -283,6 +327,12 @@ html, body {
   flex: 1;
   min-height: 150px;
   position: relative;
+  /* fondo un poco mas solido solo detras de la grafica, para que los
+     ejes/etiquetas se sigan leyendo bien aunque el resto de la tarjeta
+     sea bien transparente */
+  background: rgba(10, 10, 10, 0.25);
+  border-radius: 14px;
+  padding: 8px 10px 2px;
 }
 
 .card-empty {
