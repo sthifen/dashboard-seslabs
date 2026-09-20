@@ -108,9 +108,34 @@ def download_csv_text(service, file_id):
     return buf.getvalue().decode("utf-8", errors="replace")
 
 
-def parse_csv_column(csv_text, timestamp_col, value_col):
+def resolve_column(fieldnames, base_name):
+    """Encuentra la columna real de un CSV aunque el encabezado tenga un
+    sufijo de unidad pegado al nombre (ej. 'MS_Irr_Comp_Avg [W/m^2]' cuando
+    internamente solo usamos 'MS_Irr_Comp_Avg'). Primero intenta match
+    exacto, si no encuentra usa la primera columna cuyo nombre empiece con
+    base_name."""
+    fieldnames = fieldnames or []
+    if base_name in fieldnames:
+        return base_name
+    for fn in fieldnames:
+        if fn and fn.strip().startswith(base_name):
+            return fn
+    return None
+
+
+def parse_csv_column(csv_text, timestamp_base, value_base):
     points = []
     reader = csv.DictReader(io.StringIO(csv_text))
+    fieldnames = reader.fieldnames or []
+    timestamp_col = resolve_column(fieldnames, timestamp_base)
+    value_col = resolve_column(fieldnames, value_base)
+    if timestamp_col is None or value_col is None:
+        print(
+            f"AVISO: no se encontro columna (timestamp={timestamp_base!r} -> {timestamp_col!r}, "
+            f"valor={value_base!r} -> {value_col!r}); headers reales: {fieldnames}",
+            file=sys.stderr,
+        )
+        return points
     for row in reader:
         ts = row.get(timestamp_col)
         raw_val = row.get(value_col)
