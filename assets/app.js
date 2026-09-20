@@ -86,13 +86,21 @@
       return r.json();
     })
     .then((json) => {
+      // A partir de aquí ya tenemos el JSON: si algo truena dibujando,
+      // NO lo confundimos con un fallo de carga (eso ya pasó bien).
       state.raw = json;
       updatedPillState(json.generated_at);
       renderGaps(json.gaps_conocidos || []);
-      indexSensors(json.sensors || {});
-      buildDayHourControls();
-      renderAllCards();
-      wireControls();
+      try {
+        indexSensors(json.sensors || {});
+        buildDayHourControls();
+        renderAllCards();
+        wireControls();
+      } catch (renderErr) {
+        console.error("Error dibujando el dashboard:", renderErr);
+        document.getElementById("sensorGrid").innerHTML =
+          `<div class="glass card"><div class="card-empty">Los datos cargaron bien, pero hubo un error dibujando las gráficas.<br>Revisa la consola del navegador (F12) para el detalle.</div></div>`;
+      }
     })
     .catch((err) => {
       updatedPillState(null);
@@ -192,7 +200,12 @@
       if (!sensor) return;
       const allPoints = state.parsed[meta.key] || [];
       const points = filterPoints(allPoints, filter);
-      if (points.length) drawChart(meta, sensor, points);
+      if (!points.length) return;
+      try {
+        drawChart(meta, sensor, points);
+      } catch (chartErr) {
+        console.error(`No se pudo dibujar la gráfica de ${meta.key}:`, chartErr);
+      }
     });
   }
 
