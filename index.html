@@ -7,6 +7,7 @@
 <meta name="description" content="Monitoreo en tiempo real de sensores seslabs (irradiancia, calibrador, celdas de bajo costo)." />
 <link rel="stylesheet" href="assets/style.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -55,15 +56,52 @@
     <ul id="gapsList"></ul>
   </section>
 
+  <section class="glass compare">
+    <div class="compare-head">
+      <div>
+        <h2>Comparativa entre sensores</h2>
+        <p class="muted small">Elige cualquier combinación de sensores para verlos superpuestos (usa el mismo filtro de día/hora de arriba).</p>
+      </div>
+      <label class="normalize-toggle">
+        <input type="checkbox" id="normalizeToggle" />
+        <span>Normalizar (0–100%)</span>
+      </label>
+    </div>
+    <div class="compare-picker" id="comparePicker">
+      <!-- chips de sensores generados por assets/app.js -->
+    </div>
+    <div class="compare-chart-wrap">
+      <canvas id="compareChart"></canvas>
+      <p class="compare-empty" id="compareEmpty">Selecciona 2 o más sensores arriba para compararlos.</p>
+    </div>
+  </section>
+
   <main class="grid" id="sensorGrid">
     <!-- Las tarjetas de sensores se generan con assets/app.js -->
   </main>
+
+  <section class="glass colab-card">
+    <div class="colab-info">
+      <h2>Código fuente (Google Colab)</h2>
+      <p class="muted small">Escanea el QR o abre el link para ver el notebook que procesa estos datos.</p>
+      <a id="colabLink" class="colab-link" href="#" target="_blank" rel="noopener">Abrir en Colab ↗</a>
+    </div>
+    <div class="colab-qr">
+      <canvas id="colabQrCanvas" width="104" height="104"></canvas>
+    </div>
+  </section>
 
   <footer class="footer-note">
     <span>Datos leídos de Google Drive (solo lectura) y ThingSpeak. Se refresca solo cada ~30 min vía GitHub Actions.</span>
   </footer>
 
 </div>
+
+<div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+<aside class="drawer glass" id="detailDrawer" hidden>
+  <button class="drawer-close" id="drawerClose" aria-label="Cerrar">×</button>
+  <div id="drawerContent"><!-- generado por assets/app.js --></div>
+</aside>
 
 <script src="assets/app.js"></script>
 </body>

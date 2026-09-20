@@ -28,11 +28,32 @@
   const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
   const DIAS = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
 
+  const COLAB_URL = "https://colab.research.google.com/drive/1hgJy_P-Jwq0YHZA1fwT7yOOgHO49kT2W";
+
   let state = {
     raw: null,          // json completo
-    parsed: {},         // key -> [{date, hh, mm, label, value}]
-    charts: {},         // key -> Chart instance
+    parsed: {},         // key -> [{date, hh, mm, label, value, epoch}]
+    charts: {},         // key -> Chart instance (tarjetas individuales)
+    compareChart: null, // Chart instance (comparativa)
   };
+
+  // -------------------- Colab: link + QR --------------------
+
+  (function initColab() {
+    const link = document.getElementById("colabLink");
+    if (link) link.href = COLAB_URL;
+    const canvas = document.getElementById("colabQrCanvas");
+    if (canvas && window.QRCode) {
+      QRCode.toCanvas(canvas, COLAB_URL, { width: 104, margin: 1, color: { dark: "#0b0b0b", light: "#ffffff" } }, (err) => {
+        if (err) console.error("No se pudo generar el QR del Colab:", err);
+      });
+    }
+  })();
+
+  // -------------------- drawer de detalle por sensor --------------------
+
+  document.getElementById("drawerClose").addEventListener("click", closeDrawer);
+  document.getElementById("drawerBackdrop").addEventListener("click", closeDrawer);
 
   // -------------------- reloj en vivo --------------------
 
@@ -57,6 +78,19 @@
     const m = /(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/.exec(ts || "");
     if (!m) return null;
     return { date: m[1], hh: parseInt(m[2], 10), mm: m[3] };
+  }
+
+  // Epoch en ms, solo para poder alinear en el tiempo series de distintas
+  // fuentes en la gráfica comparativa (un eje lineal numérico, sin libreria
+  // de fechas extra). Puede haber un corrimiento leve de zona horaria entre
+  // Drive (hora local sin offset) y ThingSpeak (UTC con 'Z'); para comparar
+  // la FORMA de las curvas entre sensores es suficiente.
+  function tsToEpochMs(ts) {
+    if (!ts) return null;
+    const iso = /Z$/.test(ts) ? ts : ts.replace(" ", "T");
+    const d = new Date(iso);
+    const t = d.getTime();
+    return Number.isNaN(t) ? null : t;
   }
 
   function updatedPillState(generatedAt) {
@@ -95,6 +129,8 @@
         indexSensors(json.sensors || {});
         buildDayHourControls();
         renderAllCards();
+        buildComparePicker();
+        renderCompareChart();
         wireControls();
       } catch (renderErr) {
         console.error("Error dibujando el dashboard:", renderErr);
@@ -116,7 +152,7 @@
         .map(([ts, val]) => {
           const p = parseTs(ts);
           if (!p) return null;
-          return { ...p, label: `${p.hh.toString().padStart(2, "0")}:${p.mm}`, value: val, ts };
+          return { ...p, label: `${p.hh.toString().padStart(2, "0")}:${p.mm}`, value: val, ts, epoch: tsToEpochMs(ts) };
         })
         .filter(Boolean);
     });
@@ -160,8 +196,12 @@
 
   function wireControls() {
     ["daySelect", "hourFromSelect", "hourToSelect"].forEach((id) => {
-      document.getElementById(id).addEventListener("change", renderAllCards);
+      document.getElementById(id).addEventListener("change", () => {
+        renderAllCards();
+        renderCompareChart();
+      });
     });
+    document.getElementById("normalizeToggle").addEventListener("change", renderCompareChart);
   }
 
   function currentFilter() {
@@ -211,7 +251,8 @@
 
   function buildCard(meta, sensor, points) {
     const card = document.createElement("div");
-    card.className = "glass card";
+    card.className = "glass card card-clickable";
+    card.dataset.key = meta.key;
     const last = points[points.length - 1];
 
     card.innerHTML = `
@@ -238,9 +279,227 @@
 
     const btn = card.querySelector(".table-toggle");
     if (btn) {
-      btn.addEventListener("click", () => toggleTable(meta.key, sensor, points, btn));
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        toggleTable(meta.key, sensor, points, btn);
+      });
     }
+    card.addEventListener("click", (ev) => {
+      if (ev.target.closest(".table-toggle") || ev.target.closest(".table-wrap")) return;
+      openDrawer(meta.key);
+    });
     return card;
+  }
+
+  // -------------------- panel de detalle por sensor --------------------
+
+  function computeSensorDetail(key) {
+    const points = state.parsed[key] || [];
+    if (!points.length) return { empty: true };
+
+    const dates = Array.from(new Set(points.map((p) => p.date))).sort();
+    const months = Array.from(new Set(dates.map((d) => d.slice(0, 7)))).sort();
+    const hours = points.map((p) => p.hh);
+    const minHour = Math.min(...hours);
+    const maxHour = Math.max(...hours);
+
+    let missing = [];
+    const win = state.raw && state.raw.window;
+    if (win && win.start && win.end) {
+      const present = new Set(dates);
+      const d = new Date(win.start + "T00:00:00");
+      const end = new Date(win.end + "T00:00:00");
+      while (d <= end) {
+        const ds = d.toISOString().slice(0, 10);
+        if (!present.has(ds)) missing.push(ds);
+        d.setDate(d.getDate() + 1);
+      }
+    }
+
+    return {
+      empty: false,
+      totalPoints: points.length,
+      firstDate: dates[0],
+      lastDate: dates[dates.length - 1],
+      daysWithData: dates.length,
+      windowDays: win ? win.days : dates.length,
+      months,
+      minHour,
+      maxHour,
+      missing,
+    };
+  }
+
+  function openDrawer(key) {
+    const meta = SENSOR_META.find((m) => m.key === key);
+    const sensor = state.raw && state.raw.sensors[key];
+    if (!meta || !sensor) return;
+    const color = resolveColor(meta.color);
+    const detail = computeSensorDetail(key);
+    const content = document.getElementById("drawerContent");
+
+    const header = `
+      <div class="drawer-title"><span class="drawer-dot" style="background:${color}"></span>${escapeHtml(sensor.label)}</div>
+      <p class="muted small">${escapeHtml(sensor.source)}</p>
+    `;
+
+    if (detail.empty) {
+      content.innerHTML = `${header}<p class="muted">Este sensor no tiene datos en la ventana actual.</p>`;
+    } else {
+      content.innerHTML = `
+        ${header}
+        <div class="drawer-stats">
+          <div class="drawer-stat"><span class="stat-label">Puntos totales</span><span class="stat-value">${detail.totalPoints}</span></div>
+          <div class="drawer-stat"><span class="stat-label">Rango de fechas</span><span class="stat-value">${detail.firstDate} → ${detail.lastDate}</span></div>
+          <div class="drawer-stat"><span class="stat-label">Días con datos</span><span class="stat-value">${detail.daysWithData} de ${detail.windowDays}</span></div>
+          <div class="drawer-stat"><span class="stat-label">Horas con datos</span><span class="stat-value">${String(detail.minHour).padStart(2, "0")}:00 – ${String(detail.maxHour).padStart(2, "0")}:59</span></div>
+          <div class="drawer-stat"><span class="stat-label">Meses cubiertos</span><span class="stat-value">${detail.months.join(", ")}</span></div>
+        </div>
+        <h3 class="drawer-subtitle">Huecos de este sensor en la ventana</h3>
+        ${detail.missing.length
+          ? `<ul class="drawer-gaps">${detail.missing.map((d) => `<li>${d}</li>`).join("")}</ul>`
+          : `<p class="muted small">Sin huecos — hay datos todos los días de la ventana.</p>`}
+      `;
+    }
+
+    document.getElementById("drawerBackdrop").hidden = false;
+    document.getElementById("detailDrawer").hidden = false;
+    requestAnimationFrame(() => document.getElementById("detailDrawer").classList.add("open"));
+  }
+
+  function closeDrawer() {
+    const drawer = document.getElementById("detailDrawer");
+    drawer.classList.remove("open");
+    setTimeout(() => {
+      drawer.hidden = true;
+      document.getElementById("drawerBackdrop").hidden = true;
+    }, 200);
+  }
+
+  // -------------------- comparativa entre sensores --------------------
+
+  function buildComparePicker() {
+    const wrap = document.getElementById("comparePicker");
+    wrap.innerHTML = SENSOR_META
+      .filter((meta) => state.raw.sensors[meta.key])
+      .map((meta) => {
+        const sensor = state.raw.sensors[meta.key];
+        const color = resolveColor(meta.color);
+        return `
+          <label class="compare-chip" style="--chip-color:${color}">
+            <input type="checkbox" value="${meta.key}" class="compare-check" />
+            <span>${escapeHtml(sensor.label)}</span>
+          </label>
+        `;
+      })
+      .join("");
+    wrap.querySelectorAll(".compare-check").forEach((el) => el.addEventListener("change", renderCompareChart));
+  }
+
+  function renderCompareChart() {
+    const canvas = document.getElementById("compareChart");
+    const empty = document.getElementById("compareEmpty");
+    if (!canvas || !state.raw) return;
+
+    const selected = Array.from(document.querySelectorAll(".compare-check:checked")).map((el) => el.value);
+    const normalize = document.getElementById("normalizeToggle").checked;
+    const filter = currentFilter();
+
+    if (state.compareChart) { state.compareChart.destroy(); state.compareChart = null; }
+
+    if (selected.length < 2) {
+      canvas.hidden = true;
+      empty.hidden = false;
+      empty.textContent = selected.length === 0
+        ? "Selecciona 2 o más sensores arriba para compararlos."
+        : "Selecciona al menos 1 sensor más para comparar.";
+      return;
+    }
+
+    canvas.hidden = false;
+    empty.hidden = true;
+
+    const datasets = selected.map((key) => {
+      const meta = SENSOR_META.find((m) => m.key === key);
+      const sensor = state.raw.sensors[key];
+      const color = resolveColor(meta.color);
+      let pts = filterPoints(state.parsed[key] || [], filter)
+        .filter((p) => p.epoch != null)
+        .map((p) => ({ x: p.epoch, y: p.value }));
+
+      if (normalize && pts.length) {
+        const values = pts.map((p) => p.y);
+        const min = Math.min(...values), max = Math.max(...values);
+        const range = max - min;
+        pts = pts.map((p) => ({ x: p.x, y: range ? ((p.y - min) / range) * 100 : 50 }));
+      }
+
+      return {
+        label: sensor.label,
+        unit: sensor.unit,
+        data: pts,
+        borderColor: color,
+        backgroundColor: hexToRgba(color, 0.08),
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        tension: 0.25,
+        parsing: false,
+      };
+    });
+
+    const ctx = canvas.getContext("2d");
+    state.compareChart = new Chart(ctx, {
+      type: "line",
+      data: { datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: "nearest", intersect: false },
+        plugins: {
+          legend: {
+            display: true,
+            position: "bottom",
+            labels: { color: "#c3c2b7", usePointStyle: true, boxWidth: 8, font: { size: 11 } },
+          },
+          tooltip: {
+            backgroundColor: "rgba(20,20,19,0.92)",
+            borderColor: "rgba(255,255,255,0.14)",
+            borderWidth: 1,
+            titleColor: "#ffffff",
+            bodyColor: "#c3c2b7",
+            padding: 10,
+            callbacks: {
+              title: (items) => (items.length ? new Date(items[0].parsed.x).toLocaleString("es-CR", { dateStyle: "short", timeStyle: "short" }) : ""),
+              label: (item) => {
+                const ds = item.dataset;
+                const suffix = normalize ? "%" : ` ${ds.unit}`;
+                return `${ds.label}: ${formatNum(item.parsed.y)}${suffix}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            type: "linear",
+            ticks: {
+              color: "#898781",
+              maxTicksLimit: 8,
+              font: { size: 10 },
+              callback: (value) => new Date(value).toLocaleTimeString("es-CR", { hour: "2-digit", minute: "2-digit" }),
+            },
+            grid: { color: "#2c2c2a", drawTicks: false },
+            border: { color: "#383835" },
+          },
+          y: {
+            ticks: { color: "#898781", maxTicksLimit: 6, font: { size: 10 } },
+            grid: { color: "#2c2c2a", drawTicks: false },
+            border: { display: false },
+          },
+        },
+      },
+    });
   }
 
   function toggleTable(key, sensor, points, btn) {

@@ -387,6 +387,234 @@ html, body {
 }
 .table-wrap th { color: var(--text-muted); font-weight: 500; position: sticky; top: 0; background: rgba(20,20,19,0.85); }
 
+.muted.small { font-size: 12px; margin-top: 2px; }
+
+/* -------------------- tarjetas clickeables -------------------- */
+
+.card-clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.card-clickable:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+.card-clickable:active { transform: translateY(0); }
+
+/* -------------------- comparativa -------------------- */
+
+.compare {
+  padding: 20px 24px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.compare-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.compare-head h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.normalize-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.normalize-toggle input { accent-color: var(--series-blue); width: 15px; height: 15px; cursor: pointer; }
+
+.compare-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.compare-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.compare-chip::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--chip-color, var(--text-muted));
+  opacity: 0.55;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease;
+}
+.compare-chip input { position: absolute; opacity: 0; width: 0; height: 0; }
+.compare-chip:has(input:checked) {
+  background: color-mix(in srgb, var(--chip-color, var(--series-blue)) 22%, transparent);
+  border-color: var(--chip-color, var(--series-blue));
+  color: var(--text-primary);
+}
+.compare-chip:has(input:checked)::before { opacity: 1; }
+.compare-chip:hover { border-color: rgba(255, 255, 255, 0.4); }
+
+.compare-chart-wrap {
+  position: relative;
+  height: 320px;
+  background: rgba(10, 10, 10, 0.25);
+  border-radius: 14px;
+  padding: 12px 14px 4px;
+}
+
+.compare-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+/* -------------------- tarjeta Colab / QR -------------------- */
+
+.colab-card {
+  padding: 18px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.colab-info h2 { margin: 0 0 4px; font-size: 15px; font-weight: 650; }
+
+.colab-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: var(--text-primary);
+  font-size: 13px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.colab-link:hover { background: rgba(255, 255, 255, 0.18); }
+
+.colab-qr {
+  flex-shrink: 0;
+  padding: 10px;
+  background: #ffffff;
+  border-radius: 14px;
+  line-height: 0;
+}
+
+/* -------------------- panel de detalle (drawer) -------------------- */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(4, 5, 8, 0.55);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.drawer {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  bottom: 14px;
+  width: min(380px, calc(100vw - 28px));
+  z-index: 41;
+  padding: 22px 22px 24px;
+  overflow-y: auto;
+  transform: translateX(calc(100% + 24px));
+  transition: transform 0.22s ease;
+}
+.drawer.open { transform: translateX(0); }
+
+.drawer-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.drawer-close:hover { background: rgba(255, 255, 255, 0.18); }
+
+.drawer-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 16px;
+  font-weight: 650;
+  padding-right: 30px;
+}
+.drawer-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+
+.drawer-stats {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.drawer-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--border-hairline);
+}
+.stat-label { color: var(--text-muted); }
+.stat-value { color: var(--text-primary); text-align: right; font-variant-numeric: tabular-nums; }
+
+.drawer-subtitle {
+  margin: 18px 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.drawer-gaps {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.drawer-gaps li { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+
 /* -------------------- footer -------------------- */
 
 .footer-note {
@@ -403,4 +631,6 @@ html, body {
   .hero-clock { text-align: left; }
   .page { padding: 18px 14px 40px; }
   .clock-time { font-size: 28px; }
+  .drawer { top: 0; right: 0; bottom: 0; width: 100vw; border-radius: 0; }
+  .colab-card { flex-direction: column; align-items: flex-start; }
 }
