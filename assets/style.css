@@ -1,0 +1,356 @@
+/* ============================================================
+   Dashboard seslabs — estilo "liquid glass" (macOS)
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  /* superficie / tinta — paso oscuro del sistema de color validado */
+  --surface-1:      #1a1a19;
+  --page-plane:      #0d0d0d;
+  --text-primary:    #ffffff;
+  --text-secondary:  #c3c2b7;
+  --text-muted:      #898781;
+  --gridline:        #2c2c2a;
+  --baseline:        #383835;
+  --border-hairline: rgba(255, 255, 255, 0.14);
+
+  /* paleta categórica (paso oscuro, validada) — un color fijo por sensor */
+  --series-blue:    #3987e5;
+  --series-orange:  #d95926;
+  --series-aqua:    #199e70;
+  --series-yellow:  #c98500;
+  --series-magenta: #d55181;
+  --series-green:   #008300;
+  --series-violet:  #9085e9;
+  --series-red:     #e66767;
+
+  --status-good:     #0ca30c;
+  --status-warning:  #fab219;
+  --status-critical: #d03b3b;
+
+  --glass-blur: 28px;
+  --glass-radius: 26px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--page-plane);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text-primary);
+}
+
+/* -------------------- fondo -------------------- */
+
+.bg-photo {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: url("bg.jpg");
+  background-size: cover;
+  background-position: center 30%;
+  background-repeat: no-repeat;
+  filter: saturate(1.05) brightness(0.75);
+  transform: scale(1.03); /* evita bordes al hacer blur del contenedor en algunos navegadores */
+}
+
+.bg-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(120% 90% at 50% -10%, rgba(20, 24, 30, 0.15), rgba(6, 8, 12, 0.55) 55%, rgba(4, 5, 8, 0.85) 100%);
+}
+
+/* -------------------- layout -------------------- */
+
+.page {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 28px 20px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* -------------------- glass base -------------------- */
+
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--glass-radius);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 18px 40px rgba(0, 0, 0, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+.glass::before {
+  /* brillo especular sutil arriba, tipo liquid glass */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0) 70%);
+  pointer-events: none;
+}
+
+/* -------------------- hero -------------------- */
+
+.hero {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.hero-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.hero-title h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.muted { color: var(--text-secondary); margin: 0; font-size: 14px; }
+
+.hero-clock {
+  text-align: right;
+}
+
+.clock-time {
+  font-size: 34px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.clock-day {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.hero-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-hairline);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border-hairline);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.status-pill .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.status-pill.ok .dot { background: var(--status-good); box-shadow: 0 0 8px var(--status-good); }
+.status-pill.stale .dot { background: var(--status-warning); box-shadow: 0 0 8px var(--status-warning); }
+.status-pill.error .dot { background: var(--status-critical); box-shadow: 0 0 8px var(--status-critical); }
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.control select {
+  appearance: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid var(--border-hairline);
+  border-radius: 12px;
+  padding: 7px 30px 7px 12px;
+  min-width: 130px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%), linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position: calc(100% - 16px) center, calc(100% - 11px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.control select:focus { outline: 1.5px solid var(--series-blue); }
+
+/* -------------------- gaps -------------------- */
+
+.gaps {
+  padding: 16px 22px;
+}
+.gaps h2 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--status-warning);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.gaps ul { margin: 0; padding-left: 18px; }
+.gaps li { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+
+/* -------------------- grid de sensores -------------------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 18px;
+}
+
+.card {
+  padding: 18px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 260px;
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.card-title { display: flex; flex-direction: column; gap: 2px; }
+
+.card-title .name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.card-title .source {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.card-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-value .num {
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.card-value .unit {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 3px;
+}
+
+.card-chart {
+  flex: 1;
+  min-height: 150px;
+  position: relative;
+}
+
+.card-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 20px;
+}
+
+.card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.table-toggle {
+  background: transparent;
+  border: 1px solid var(--border-hairline);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.table-toggle:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.3); }
+
+.table-wrap {
+  max-height: 180px;
+  overflow: auto;
+  border-top: 1px solid var(--border-hairline);
+  margin-top: 4px;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.table-wrap th, .table-wrap td {
+  text-align: left;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--gridline);
+  color: var(--text-secondary);
+}
+.table-wrap th { color: var(--text-muted); font-weight: 500; position: sticky; top: 0; background: rgba(20,20,19,0.85); }
+
+/* -------------------- footer -------------------- */
+
+.footer-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 10px 0 0;
+}
+
+/* -------------------- responsive -------------------- */
+
+@media (max-width: 640px) {
+  .hero-top { flex-direction: column; align-items: flex-start; }
+  .hero-clock { text-align: left; }
+  .page { padding: 18px 14px 40px; }
+  .clock-time { font-size: 28px; }
+}

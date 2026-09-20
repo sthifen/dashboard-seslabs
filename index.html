@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard seslabs</title>
+<meta name="description" content="Monitoreo en tiempo real de sensores seslabs (irradiancia, calibrador, celdas de bajo costo)." />
+<link rel="stylesheet" href="assets/style.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="bg-photo"></div>
+<div class="bg-scrim"></div>
+
+<div class="page">
+
+  <header class="glass hero">
+    <div class="hero-top">
+      <div class="hero-title">
+        <h1>seslabs · Monitoreo Agrivoltaica</h1>
+        <p class="muted">Irradiancia, calibrador y celdas de bajo costo — actualizado automáticamente</p>
+      </div>
+      <div class="hero-clock">
+        <div class="clock-time" id="clockTime">--:--:--</div>
+        <div class="clock-day" id="clockDay">-- de -- de ----</div>
+      </div>
+    </div>
+
+    <div class="hero-bottom">
+      <div class="status-pill" id="updatedPill">
+        <span class="dot" id="updatedDot"></span>
+        <span id="updatedText">Cargando datos…</span>
+      </div>
+
+      <div class="controls">
+        <label class="control">
+          <span>Día</span>
+          <select id="daySelect"><option value="all">Todo el rango</option></select>
+        </label>
+        <label class="control">
+          <span>Hora desde</span>
+          <select id="hourFromSelect"></select>
+        </label>
+        <label class="control">
+          <span>Hora hasta</span>
+          <select id="hourToSelect"></select>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <section class="glass gaps" id="gapsPanel" hidden>
+    <h2>Huecos conocidos en los datos</h2>
+    <ul id="gapsList"></ul>
+  </section>
+
+  <main class="grid" id="sensorGrid">
+    <!-- Las tarjetas de sensores se generan con assets/app.js -->
+  </main>
+
+  <footer class="footer-note">
+    <span>Datos leídos de Google Drive (solo lectura) y ThingSpeak. Se refresca solo cada ~30 min vía GitHub Actions.</span>
+  </footer>
+
+</div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
