@@ -655,6 +655,10 @@ html, body {
 }
 .gap-folder:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.4); }
 
+.drawer-table-block { margin-top: 18px; }
+.drawer-table-toggle { width: 100%; text-align: center; }
+.drawer-table-block .table-wrap { margin-top: 10px; max-height: 320px; }
+
 /* -------------------- footer -------------------- */
 
 .footer-note {

@@ -307,18 +307,17 @@
         <span>${points.length} puntos</span>
         ${points.length ? `<button class="table-toggle" data-key="${meta.key}">Ver tabla</button>` : ""}
       </div>
-      <div class="table-wrap" id="table-${meta.key}" hidden></div>
     `;
 
     const btn = card.querySelector(".table-toggle");
     if (btn) {
       btn.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        toggleTable(meta.key, sensor, points, btn);
+        openDrawer(meta.key, { showTable: true });
       });
     }
     card.addEventListener("click", (ev) => {
-      if (ev.target.closest(".table-toggle") || ev.target.closest(".table-wrap")) return;
+      if (ev.target.closest(".table-toggle")) return;
       openDrawer(meta.key);
     });
     return card;
@@ -392,7 +391,7 @@
     closeDrawer();
   }
 
-  function openDrawer(key) {
+  function openDrawer(key, opts) {
     const meta = SENSOR_META.find((m) => m.key === key);
     const sensor = state.raw && state.raw.sensors[key];
     if (!meta || !sensor) return;
@@ -406,12 +405,20 @@
       <p class="muted small">${escapeHtml(sensor.source)}${folderUrl ? ` · <a class="gap-folder" href="${folderUrl}" target="_blank" rel="noopener">Ver carpeta/canal fuente ↗</a>` : ""}</p>
     `;
 
+    const tableBlock = `
+      <div class="drawer-table-block">
+        <button type="button" class="table-toggle drawer-table-toggle" id="drawerTableToggle">Mostrar tabla de datos (rango seleccionado)</button>
+        <div id="drawerTableWrapOuter" hidden></div>
+      </div>
+    `;
+
     if (detail.empty) {
       content.innerHTML = `
         ${header}
         <p class="muted">Este sensor no tiene datos en la ventana actual.</p>
         <h3 class="drawer-subtitle">Días sin datos en la ventana (clic para verlos en el dashboard)</h3>
         ${renderMissingList(detail.missing, folderUrl)}
+        ${tableBlock}
       `;
     } else {
       content.innerHTML = `
@@ -425,12 +432,32 @@
         </div>
         <h3 class="drawer-subtitle">Huecos de este sensor (clic en una fecha para verla en el dashboard)</h3>
         ${renderMissingList(detail.missing, folderUrl)}
+        ${tableBlock}
       `;
     }
 
     content.querySelectorAll(".gap-jump").forEach((btn) => {
       btn.addEventListener("click", () => jumpToDay(btn.dataset.date));
     });
+
+    const tableToggle = content.querySelector("#drawerTableToggle");
+    const tableOuter = content.querySelector("#drawerTableWrapOuter");
+    let tableBuilt = false;
+    function showTable() {
+      if (!tableBuilt) { tableOuter.innerHTML = drawerTableHtml(key); tableBuilt = true; }
+      tableOuter.hidden = false;
+      tableToggle.textContent = "Ocultar tabla de datos";
+    }
+    function hideTable() {
+      tableOuter.hidden = true;
+      tableToggle.textContent = "Mostrar tabla de datos (rango seleccionado)";
+    }
+    if (tableToggle) {
+      tableToggle.addEventListener("click", () => {
+        if (tableOuter.hidden) showTable(); else hideTable();
+      });
+      if (opts && opts.showTable) showTable();
+    }
 
     document.getElementById("drawerBackdrop").hidden = false;
     document.getElementById("detailDrawer").hidden = false;
@@ -448,10 +475,15 @@
 
   // -------------------- comparativa entre sensores --------------------
 
+  // sq_calibrador mide en µmol/m²s (cuántico), no en W/m² como el resto —
+  // mezclarlo en la comparativa no tiene sentido físico ni normalizado, así
+  // que se excluye del picker (su propia tarjeta sigue mostrándolo normal).
+  const COMPARE_EXCLUDE = new Set(["sq_calibrador"]);
+
   function buildComparePicker() {
     const wrap = document.getElementById("comparePicker");
     wrap.innerHTML = SENSOR_META
-      .filter((meta) => state.raw.sensors[meta.key])
+      .filter((meta) => !COMPARE_EXCLUDE.has(meta.key) && state.raw.sensors[meta.key])
       .map((meta) => {
         const sensor = state.raw.sensors[meta.key];
         const color = resolveColor(meta.color);
@@ -563,6 +595,12 @@
             border: { color: "#383835" },
           },
           y: {
+            title: {
+              display: true,
+              text: normalize ? "Escala relativa (%)" : "Unidades mixtas — activa \"Normalizar\" si una línea no se ve",
+              color: "#898781",
+              font: { size: 10 },
+            },
             ticks: { color: "#898781", maxTicksLimit: 6, font: { size: 10 } },
             grid: { color: "#2c2c2a", drawTicks: false },
             border: { display: false },
@@ -572,19 +610,25 @@
     });
   }
 
-  function toggleTable(key, sensor, points, btn) {
-    const wrap = document.getElementById(`table-${key}`);
-    if (!wrap.hidden) { wrap.hidden = true; btn.textContent = "Ver tabla"; return; }
-    wrap.hidden = false;
-    btn.textContent = "Ocultar tabla";
-    if (!wrap.dataset.built) {
-      const rows = points
-        .slice(-500) // evita tablas gigantes en el DOM
-        .map((p) => `<tr><td>${p.date} ${p.label}</td><td>${formatNum(p.value)}</td></tr>`)
-        .join("");
-      wrap.innerHTML = `<table><thead><tr><th>Fecha / hora</th><th>${escapeHtml(sensor.unit)}</th></tr></thead><tbody>${rows}</tbody></table>`;
-      wrap.dataset.built = "1";
+  // -------------------- tabla de datos (dentro del drawer) --------------------
+
+  function drawerTableHtml(key) {
+    const sensor = state.raw.sensors[key];
+    const filter = currentFilter();
+    const points = filterPoints(state.parsed[key] || [], filter);
+    if (!points.length) {
+      return `<p class="muted small">Sin datos para el día/hora seleccionados arriba.</p>`;
     }
+    const shown = points.slice(-500); // evita tablas gigantes en el DOM
+    const rows = shown
+      .map((p) => `<tr><td>${p.date} ${p.label}</td><td>${formatNum(p.value)}</td></tr>`)
+      .join("");
+    return `
+      <div class="table-wrap">
+        <table><thead><tr><th>Fecha / hora</th><th>${escapeHtml(sensor.unit)}</th></tr></thead><tbody>${rows}</tbody></table>
+      </div>
+      ${points.length > shown.length ? `<p class="muted small">Mostrando los últimos ${shown.length} de ${points.length} puntos (rango de día/hora actual).</p>` : ""}
+    `;
   }
 
   function drawChart(meta, sensor, points) {
