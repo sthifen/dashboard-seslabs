@@ -145,7 +145,13 @@ def parse_csv_column(csv_text, timestamp_base, value_base):
             val = float(raw_val)
         except (TypeError, ValueError):
             continue
-        points.append([ts.strip(), val])
+        # Algunos archivos de Drive traen bytes NUL pegados al timestamp por
+        # un problema de encoding en el CSV fuente (ej. "\x00\x00...2026-09-17
+        # 07:40:36"). Los quitamos para no meter timestamps corruptos al JSON.
+        ts_clean = ts.replace("\x00", "").strip()
+        if not ts_clean:
+            continue
+        points.append([ts_clean, val])
     return points
 
 

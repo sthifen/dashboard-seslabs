@@ -97,11 +97,22 @@
   // Epoch en ms, solo para poder alinear en el tiempo series de distintas
   // fuentes en la gráfica comparativa (un eje lineal numérico, sin libreria
   // de fechas extra). Puede haber un corrimiento leve de zona horaria entre
-  // Drive (hora local sin offset) y ThingSpeak (UTC con 'Z'); para comparar
-  // la FORMA de las curvas entre sensores es suficiente.
+  // Drive (hora local sin offset) y ThingSpeak (UTC); para comparar la FORMA
+  // de las curvas entre sensores es suficiente.
+  //
+  // Formatos que llegan aquí:
+  //   Drive:      "YYYY-MM-DD HH:MM:SS"        (sin zona, se toma tal cual)
+  //   ThingSpeak: "YYYY-MM-DD HH:MM:SS UTC"     (sufijo " UTC" -- OJO, Date()
+  //               no lo entiende directo y devuelve Invalid Date / NaN si no
+  //               se limpia primero)
+  //   ISO:        "YYYY-MM-DDTHH:MM:SSZ"
   function tsToEpochMs(ts) {
     if (!ts) return null;
-    const iso = /Z$/.test(ts) ? ts : ts.replace(" ", "T");
+    let s = String(ts).trim();
+    const hadUtcSuffix = /\sUTC$/i.test(s);
+    s = s.replace(/\s*UTC$/i, "");
+    let iso = /Z$/.test(s) ? s : s.replace(" ", "T");
+    if (hadUtcSuffix && !/Z$/.test(iso)) iso += "Z";
     const d = new Date(iso);
     const t = d.getTime();
     return Number.isNaN(t) ? null : t;
