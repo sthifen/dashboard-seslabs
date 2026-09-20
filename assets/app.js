@@ -30,6 +30,20 @@
 
   const COLAB_URL = "https://colab.research.google.com/drive/1hgJy_P-Jwq0YHZA1fwT7yOOgHO49kT2W";
 
+  // Carpetas fuente (solo lectura) para que desde un hueco se pueda ir a
+  // revisar la carpeta de Drive / canal de ThingSpeak correspondiente.
+  const DRIVE_FOLDER_CALIBRADOR = "https://drive.google.com/drive/folders/1g2Pf7mj40r8ITWUNCy-NTAsBfgxcr8m2";
+  const DRIVE_FOLDER_SC_ELECTRIC = "https://drive.google.com/drive/folders/1651WIlkKvQXt7W7vNuSmGZmr_UKzoJ9L";
+  const THINGSPEAK_URL = "https://thingspeak.com/channels/3100981";
+
+  function sourceLink(sensor) {
+    if (!sensor || !sensor.source) return null;
+    if (sensor.source.includes("Datos promedios")) return DRIVE_FOLDER_CALIBRADOR;
+    if (sensor.source.includes("SC electric")) return DRIVE_FOLDER_SC_ELECTRIC;
+    if (sensor.source.includes("ThingSpeak")) return THINGSPEAK_URL;
+    return null;
+  }
+
   let state = {
     raw: null,          // json completo
     parsed: {},         // key -> [{date, hh, mm, label, value, epoch}]
@@ -169,19 +183,38 @@
   // -------------------- controles día/hora --------------------
 
   function buildDayHourControls() {
-    const days = new Set();
-    Object.values(state.parsed).forEach((points) => points.forEach((p) => days.add(p.date)));
-    const sortedDays = Array.from(days).sort();
+    // Se listan TODOS los días de la ventana (tengan o no datos), no solo
+    // los que ya tienen datos -- así se puede saltar directo a un día
+    // marcado como hueco para confirmar que sigue vacío.
+    const win = state.raw && state.raw.window;
+    let sortedDays;
+    if (win && win.start && win.end) {
+      sortedDays = [];
+      const d = new Date(win.start + "T00:00:00");
+      const end = new Date(win.end + "T00:00:00");
+      while (d <= end) {
+        sortedDays.push(d.toISOString().slice(0, 10));
+        d.setDate(d.getDate() + 1);
+      }
+    } else {
+      const days = new Set();
+      Object.values(state.parsed).forEach((points) => points.forEach((p) => days.add(p.date)));
+      sortedDays = Array.from(days).sort();
+    }
+
+    const daysWithData = new Set();
+    Object.values(state.parsed).forEach((points) => points.forEach((p) => daysWithData.add(p.date)));
 
     const daySelect = document.getElementById("daySelect");
     sortedDays.forEach((d) => {
       const opt = document.createElement("option");
       opt.value = d;
-      opt.textContent = d;
+      opt.textContent = daysWithData.has(d) ? d : `${d} (sin datos)`;
       daySelect.appendChild(opt);
     });
     // Selecciona el día más reciente con datos por default, si existe.
-    if (sortedDays.length) daySelect.value = sortedDays[sortedDays.length - 1];
+    const lastWithData = sortedDays.filter((d) => daysWithData.has(d)).pop();
+    daySelect.value = lastWithData || (sortedDays.length ? sortedDays[sortedDays.length - 1] : "all");
 
     const hourFrom = document.getElementById("hourFromSelect");
     const hourTo = document.getElementById("hourToSelect");
@@ -293,9 +326,26 @@
 
   // -------------------- panel de detalle por sensor --------------------
 
+  function windowDateList() {
+    const win = state.raw && state.raw.window;
+    const out = [];
+    if (!win || !win.start || !win.end) return out;
+    const d = new Date(win.start + "T00:00:00");
+    const end = new Date(win.end + "T00:00:00");
+    while (d <= end) {
+      out.push(d.toISOString().slice(0, 10));
+      d.setDate(d.getDate() + 1);
+    }
+    return out;
+  }
+
   function computeSensorDetail(key) {
     const points = state.parsed[key] || [];
-    if (!points.length) return { empty: true };
+    const win = state.raw && state.raw.window;
+
+    if (!points.length) {
+      return { empty: true, missing: windowDateList(), windowDays: win ? win.days : 0 };
+    }
 
     const dates = Array.from(new Set(points.map((p) => p.date))).sort();
     const months = Array.from(new Set(dates.map((d) => d.slice(0, 7)))).sort();
@@ -303,18 +353,8 @@
     const minHour = Math.min(...hours);
     const maxHour = Math.max(...hours);
 
-    let missing = [];
-    const win = state.raw && state.raw.window;
-    if (win && win.start && win.end) {
-      const present = new Set(dates);
-      const d = new Date(win.start + "T00:00:00");
-      const end = new Date(win.end + "T00:00:00");
-      while (d <= end) {
-        const ds = d.toISOString().slice(0, 10);
-        if (!present.has(ds)) missing.push(ds);
-        d.setDate(d.getDate() + 1);
-      }
-    }
+    const present = new Set(dates);
+    const missing = windowDateList().filter((ds) => !present.has(ds));
 
     return {
       empty: false,
@@ -330,21 +370,49 @@
     };
   }
 
+  function renderMissingList(missing, folderUrl) {
+    if (!missing.length) return `<p class="muted small">Sin huecos — hay datos todos los días de la ventana.</p>`;
+    return `<ul class="drawer-gaps">${missing
+      .map(
+        (d) => `
+        <li>
+          <button type="button" class="gap-jump" data-date="${d}">${d}</button>
+          ${folderUrl ? `<a class="gap-folder" href="${folderUrl}" target="_blank" rel="noopener">Ver carpeta ↗</a>` : ""}
+        </li>`
+      )
+      .join("")}</ul>`;
+  }
+
+  function jumpToDay(date) {
+    const daySelect = document.getElementById("daySelect");
+    if (!Array.from(daySelect.options).some((o) => o.value === date)) return;
+    daySelect.value = date;
+    renderAllCards();
+    renderCompareChart();
+    closeDrawer();
+  }
+
   function openDrawer(key) {
     const meta = SENSOR_META.find((m) => m.key === key);
     const sensor = state.raw && state.raw.sensors[key];
     if (!meta || !sensor) return;
     const color = resolveColor(meta.color);
     const detail = computeSensorDetail(key);
+    const folderUrl = sourceLink(sensor);
     const content = document.getElementById("drawerContent");
 
     const header = `
       <div class="drawer-title"><span class="drawer-dot" style="background:${color}"></span>${escapeHtml(sensor.label)}</div>
-      <p class="muted small">${escapeHtml(sensor.source)}</p>
+      <p class="muted small">${escapeHtml(sensor.source)}${folderUrl ? ` · <a class="gap-folder" href="${folderUrl}" target="_blank" rel="noopener">Ver carpeta/canal fuente ↗</a>` : ""}</p>
     `;
 
     if (detail.empty) {
-      content.innerHTML = `${header}<p class="muted">Este sensor no tiene datos en la ventana actual.</p>`;
+      content.innerHTML = `
+        ${header}
+        <p class="muted">Este sensor no tiene datos en la ventana actual.</p>
+        <h3 class="drawer-subtitle">Días sin datos en la ventana (clic para verlos en el dashboard)</h3>
+        ${renderMissingList(detail.missing, folderUrl)}
+      `;
     } else {
       content.innerHTML = `
         ${header}
@@ -355,12 +423,14 @@
           <div class="drawer-stat"><span class="stat-label">Horas con datos</span><span class="stat-value">${String(detail.minHour).padStart(2, "0")}:00 – ${String(detail.maxHour).padStart(2, "0")}:59</span></div>
           <div class="drawer-stat"><span class="stat-label">Meses cubiertos</span><span class="stat-value">${detail.months.join(", ")}</span></div>
         </div>
-        <h3 class="drawer-subtitle">Huecos de este sensor en la ventana</h3>
-        ${detail.missing.length
-          ? `<ul class="drawer-gaps">${detail.missing.map((d) => `<li>${d}</li>`).join("")}</ul>`
-          : `<p class="muted small">Sin huecos — hay datos todos los días de la ventana.</p>`}
+        <h3 class="drawer-subtitle">Huecos de este sensor (clic en una fecha para verla en el dashboard)</h3>
+        ${renderMissingList(detail.missing, folderUrl)}
       `;
     }
+
+    content.querySelectorAll(".gap-jump").forEach((btn) => {
+      btn.addEventListener("click", () => jumpToDay(btn.dataset.date));
+    });
 
     document.getElementById("drawerBackdrop").hidden = false;
     document.getElementById("detailDrawer").hidden = false;
