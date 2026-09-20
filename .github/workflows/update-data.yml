@@ -1,0 +1,51 @@
+name: Actualizar datos del dashboard
+
+on:
+  schedule:
+    # Cada 30 minutos (hora UTC). GitHub no garantiza el minuto exacto,
+    # pero en la practica corre cada 20-40 min.
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Jalar datos de Drive (solo lectura) y ThingSpeak
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          DRIVE_FOLDER_CALIBRADOR: "1g2Pf7mj40r8ITWUNCy-NTAsBfgxcr8m2"
+          DRIVE_FOLDER_SC_ELECTRIC: "1651WIlkKvQXt7W7vNuSmGZmr_UKzoJ9L"
+          THINGSPEAK_CHANNEL_ID: "3100981"
+          WINDOW_DAYS: "21"
+        run: python scripts/fetch_data.py
+
+      - name: Publicar los datos nuevos (si cambiaron)
+        run: |
+          git config user.name "dashboard-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/latest.json
+          if git diff --staged --quiet; then
+            echo "Sin cambios en los datos."
+          else
+            git commit -m "Actualizar datos [automatico]"
+            git push
+          fi
