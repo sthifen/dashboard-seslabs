@@ -67,15 +67,19 @@ def get_drive_service():
 
 
 def list_files_in_window(service, folder_id, prefix, start_date, end_date):
-    """Devuelve {fecha_str: file_id} eligiendo, si hay archivos duplicados
-    para la misma fecha, el de mayor tamano (heuristica ya validada: los
-    archivos 'dia completo' pesan mucho mas que los que solo tienen datos
-    de la noche)."""
-    best_by_date = {}
+    """Devuelve {fecha_str: [file_id, ...]} con TODOS los archivos de cada
+    fecha. Antes se elegia solo el mas pesado, pero cada dia puede tener
+    varios archivos que se complementan (ej. uno de 00:00-18:00 y otro de
+    18:40-23:55 subido despues a mano), asi que ahora se leen todos y los
+    puntos se combinan quitando timestamps repetidos."""
+    files_by_date = {}
     d = start_date
     while d <= end_date:
         date_str = d.strftime("%Y-%m-%d")
-        query = f"'{folder_id}' in parents and name contains '{prefix}{date_str}'"
+        query = (
+            f"'{folder_id}' in parents and name contains '{prefix}{date_str}' "
+            "and trashed = false"
+        )
         page_token = None
         candidates = []
         while True:
@@ -90,10 +94,10 @@ def list_files_in_window(service, folder_id, prefix, start_date, end_date):
             if not page_token:
                 break
         if candidates:
-            best = max(candidates, key=lambda f: int(f.get("size", 0)))
-            best_by_date[date_str] = best["id"]
+            files_by_date[date_str] = [f["id"] for f in candidates]
+            print(f"{prefix}{date_str}: {len(candidates)} archivo(s)")
         d += timedelta(days=1)
-    return best_by_date
+    return files_by_date
 
 
 def download_csv_text(service, file_id):
@@ -123,7 +127,21 @@ def resolve_column(fieldnames, base_name):
     return None
 
 
-def parse_csv_column(csv_text, timestamp_base, value_base):
+def fix_swapped_date(ts, file_date):
+    """Algunos CSV de SC electric traen la fecha como YYYY-DD-MM (ej.
+    '2026-03-10 05:05:29' en el archivo Monitoreo_2026-10-03.csv). Si la
+    fecha del timestamp no coincide con la del nombre del archivo pero al
+    invertir dia y mes si coincide, se corrige."""
+    if not file_date or len(ts) < 10 or ts[:10] == file_date:
+        return ts
+    y, a, b = ts[:4], ts[5:7], ts[8:10]
+    swapped = f"{y}-{b}-{a}"
+    if swapped == file_date:
+        return swapped + ts[10:]
+    return ts
+
+
+def parse_csv_column(csv_text, timestamp_base, value_base, file_date=None):
     points = []
     reader = csv.DictReader(io.StringIO(csv_text))
     fieldnames = reader.fieldnames or []
@@ -151,7 +169,7 @@ def parse_csv_column(csv_text, timestamp_base, value_base):
         ts_clean = ts.replace("\x00", "").strip()
         if not ts_clean:
             continue
-        points.append([ts_clean, val])
+        points.append([fix_swapped_date(ts_clean, file_date), val])
     return points
 
 
@@ -213,7 +231,9 @@ def downsample(points, max_points):
 
 
 def build_sensor(label, unit, source, points):
-    points = sorted(points, key=lambda p: p[0])
+    # Quitar timestamps repetidos (archivos duplicados en Drive).
+    points = sorted(dict(points).items())
+    points = [list(p) for p in points]
     points = downsample(points, MAX_POINTS_PER_SENSOR)
     return {"label": label, "unit": unit, "source": source, "points": points}
 
@@ -238,14 +258,15 @@ def main():
             service, DRIVE_FOLDER_CALIBRADOR, "Promedios_", start_date, end_date
         )
         found_dates = set(cal_files)
-        for date_str, file_id in cal_files.items():
-            try:
-                text = download_csv_text(service, file_id)
-            except Exception as exc:  # noqa: BLE001
-                print(f"AVISO: fallo al leer calibrador {date_str}: {exc}", file=sys.stderr)
-                continue
-            piranometro_pts += parse_csv_column(text, "Timestamp", "MS_Irr_Comp_Avg")
-            sq_pts += parse_csv_column(text, "Timestamp", "SQ_Cal_Output_Avg")
+        for date_str, file_ids in cal_files.items():
+            for file_id in file_ids:
+                try:
+                    text = download_csv_text(service, file_id)
+                except Exception as exc:  # noqa: BLE001
+                    print(f"AVISO: fallo al leer calibrador {date_str}: {exc}", file=sys.stderr)
+                    continue
+                piranometro_pts += parse_csv_column(text, "Timestamp", "MS_Irr_Comp_Avg", date_str)
+                sq_pts += parse_csv_column(text, "Timestamp", "SQ_Cal_Output_Avg", date_str)
         missing = [
             (start_date + timedelta(days=i)).strftime("%Y-%m-%d")
             for i in range(WINDOW_DAYS)
@@ -273,14 +294,15 @@ def main():
             service, DRIVE_FOLDER_SC_ELECTRIC, "Monitoreo_", start_date, end_date
         )
         found_dates = set(sc_files)
-        for date_str, file_id in sc_files.items():
-            try:
-                text = download_csv_text(service, file_id)
-            except Exception as exc:  # noqa: BLE001
-                print(f"AVISO: fallo al leer SC electric {date_str}: {exc}", file=sys.stderr)
-                continue
-            spektron_pts += parse_csv_column(text, "timestamp", "irradiancia_incidente")
-            sp722_pts += parse_csv_column(text, "timestamp", "Irradiancia_incidente_SP722")
+        for date_str, file_ids in sc_files.items():
+            for file_id in file_ids:
+                try:
+                    text = download_csv_text(service, file_id)
+                except Exception as exc:  # noqa: BLE001
+                    print(f"AVISO: fallo al leer SC electric {date_str}: {exc}", file=sys.stderr)
+                    continue
+                spektron_pts += parse_csv_column(text, "timestamp", "irradiancia_incidente", date_str)
+                sp722_pts += parse_csv_column(text, "timestamp", "Irradiancia_incidente_SP722", date_str)
         missing = [
             (start_date + timedelta(days=i)).strftime("%Y-%m-%d")
             for i in range(WINDOW_DAYS)

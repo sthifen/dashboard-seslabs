@@ -49,11 +49,13 @@ No se construyó todavía. Plan que teníamos:
    el primer `data/latest.json`.
 
 ## IDs de archivos de Drive ya verificados (por si los necesitas)
-Heurística usada: cuando hay duplicados para la misma fecha, el archivo
-más pesado (bytes) es el del día completo; los pequeños (~4.6-4.7 KB) son
-solo de la noche / incompletos. Esto ya está automatizado en
-`list_files_in_window()` dentro de `fetch_data.py`, no necesitas hacer nada
-manual — esta lista es solo referencia de lo que ya se validó:
+Ya NO se usa la heurística de "el archivo más pesado gana": cada día puede
+tener varios archivos que se complementan (ej. 00:00-18:00 y 18:40-23:55,
+este último a veces subido a mano después). `list_files_in_window()` devuelve
+todos los archivos de cada fecha (sin los de la papelera), se leen todos y
+`build_sensor()` quita timestamps repetidos. Además `fix_swapped_date()`
+corrige timestamps con día y mes invertidos usando la fecha del nombre del
+archivo. Esta lista es solo referencia histórica:
 
 **Calibrador ("Datos promedios", `Promedios_YYYY-MM-DD.csv`):**
 - 09-10: `1dgp92UFapzl_5EiOWws6GhvjTf4qBBKs`
