@@ -93,6 +93,10 @@ def list_files_in_window(service, folder_id, prefix, start_date, end_date):
             page_token = resp.get("nextPageToken")
             if not page_token:
                 break
+        # "name contains" de Drive a veces devuelve archivos de otras fechas
+        # (ej. buscar ..._2026-10-10 trae ..._2026-10-1x), asi que filtramos
+        # por el nombre exacto.
+        candidates = [f for f in candidates if f.get("name", "").startswith(prefix + date_str)]
         if candidates:
             files_by_date[date_str] = [f["id"] for f in candidates]
             print(f"{prefix}{date_str}: {len(candidates)} archivo(s)")
